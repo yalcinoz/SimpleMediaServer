@@ -49,6 +49,8 @@ public class ServerWorker implements Runnable
     	{
     		throw new RuntimeException("Cannot get input stream", e);
     	}
+    	/*
+    	System.out.println(line);
     	Matcher matcher = this.pattern.matcher(line);
     	String str = null;
     	while (matcher.find())
@@ -56,7 +58,8 @@ public class ServerWorker implements Runnable
     		str = matcher.group(1);
     		break;
     	}
-    	this.filepath = str;
+    	*/
+    	this.filepath = line;
     }
     
     private void getDataFromController()
@@ -87,7 +90,7 @@ public class ServerWorker implements Runnable
     {
 		try
 		{
-			String absolutePath = System.getProperty("user.dir") + "/dash/" + this.filepath;
+			String absolutePath = System.getProperty("user.dir") + "/dash/data/" + this.filepath;
 			File f = new File(absolutePath);
 			int len = (int) f.length();
 			byte[] buf = new byte[len];
@@ -96,8 +99,8 @@ public class ServerWorker implements Runnable
 			din.close();
 			
 			this.output = this.clientSocket.getOutputStream();
-	        this.output.write(("HTTP/1.1 200 OK\n").getBytes());
-	        this.output.write(("Content-Length: " + len + "\n\n").getBytes());
+	        //this.output.write(("HTTP/1.1 200 OK\n").getBytes());
+	        //this.output.write(("Content-Length: " + len + "\n\n").getBytes());
 	        this.output.write(buf);
 	        this.output.flush();
 		}

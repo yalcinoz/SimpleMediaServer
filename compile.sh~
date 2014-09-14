@@ -1,9 +1,0 @@
-#!/bin/sh
-
-javac src/dash/*.java
-#javac src/dash/Controller.java
-#javac src/dash/ControllerWorker.java
-#javac src/dash/Server.java
-#javac dash/ServerWorker.java
-#javac dash/Main.java
-
