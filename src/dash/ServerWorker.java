@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 public class ServerWorker implements Runnable
 {
 	private Socket clientSocket = null;
+	private Socket socket = null;
     private Pattern pattern = null;
     private InputStream input = null;
     private OutputStream output = null;
@@ -29,11 +30,27 @@ public class ServerWorker implements Runnable
 
     public void run()
     {
-        this.parseConnectionString();
-        this.getDataFromController();
-        this.sendOutput();
-        this.closeStreams();
-        System.out.println("Request processed");
+    	this.openControllerSocket();
+    	while (true)
+    	{
+	        this.parseConnectionString();
+	        this.getDataFromController();
+	        this.sendOutput();
+    	}
+        //this.closeStreams();
+        //System.out.println("Request processed");
+    }
+    
+    private void openControllerSocket()
+    {
+    	try
+    	{
+    		this.socket = new Socket("localhost", 12001);
+    	}
+    	catch (IOException e)
+    	{
+    		throw new RuntimeException("Cannot open socket to controller", e);
+    	}
     }
     
     private void parseConnectionString()
@@ -67,18 +84,16 @@ public class ServerWorker implements Runnable
     	try
     	{
     		System.out.println("Creating new socket to connect to controller");
-    		Socket socket = new Socket("localhost", 12001);
-    		PrintWriter output = new PrintWriter(socket.getOutputStream(), true);
+    		PrintWriter output = new PrintWriter(this.socket.getOutputStream(), true);
     		output.println(this.filepath);
     		
     		System.out.println("Sent output to controller");
-    		BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+    		BufferedReader input = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
     		this.filepath = input.readLine();
     		System.out.println("Read response from controller");
     		
     		output.close();
     		input.close();
-    		socket.close();
     	}
     	catch (IOException e)
     	{
