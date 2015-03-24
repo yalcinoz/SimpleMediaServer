@@ -4,108 +4,65 @@ import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class ServerWorker implements Runnable
+public class ServerWorker extends Thread
 {
-	private Socket clientSocket = null;
-	private Socket socket = null;
-    private Pattern pattern = null;
-    private InputStream input = null;
-    private OutputStream output = null;
-    private String filepath = null;
+	public Socket controllerSocket;
+	
+	private Socket clientSocket;
 
-    public ServerWorker(Socket clientSocket)
-    {
-        this.clientSocket = clientSocket;
-        this.pattern = Pattern.compile("GET /(.+) HTTP/1.1");
-    }
+	public ServerWorker(Socket controllerSocket, Socket clientSocket) throws FileNotFoundException
+	{
+		this.controllerSocket = controllerSocket;
+		this.clientSocket = clientSocket;
+	}
 
-    public void run()
-    {
-    	this.openControllerSocket();
-    	while (true)
-    	{
-	        this.parseConnectionString();
-	        this.getDataFromController();
-	        this.sendOutput();
-    	}
-        //this.closeStreams();
-        //System.out.println("Request processed");
-    }
-    
-    private void openControllerSocket()
-    {
-    	try
-    	{
-    		this.socket = new Socket("localhost", 12001);
-    	}
-    	catch (IOException e)
-    	{
-    		throw new RuntimeException("Cannot open socket to controller", e);
-    	}
-    }
-    
-    private void parseConnectionString()
-    {
-    	String line = null;
-    	try
-    	{
-	    	this.input  = this.clientSocket.getInputStream();
-	        BufferedReader in = new BufferedReader(new InputStreamReader(this.input));
-	        line = in.readLine();
-    	}
-    	catch (IOException e)
-    	{
-    		throw new RuntimeException("Cannot get input stream", e);
-    	}
-    	/*
-    	System.out.println(line);
-    	Matcher matcher = this.pattern.matcher(line);
-    	String str = null;
-    	while (matcher.find())
-    	{
-    		str = matcher.group(1);
-    		break;
-    	}
-    	*/
-    	this.filepath = line;
-    }
-    
-    private void getDataFromController()
-    {
-    	try
-    	{
-    		System.out.println("Creating new socket to connect to controller");
-    		PrintWriter output = new PrintWriter(this.socket.getOutputStream(), true);
-    		output.println(this.filepath);
-    		
-    		System.out.println("Sent output to controller");
-    		BufferedReader input = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
-    		this.filepath = input.readLine();
-    		System.out.println("Read response from controller");
-    		
-    		output.close();
-    		input.close();
-    	}
-    	catch (IOException e)
-    	{
-    		throw new RuntimeException("Cannot open controller client socket", e);
-    	}
-    }
-    
-	private void sendOutput()
+	public void run()
+	{
+		try
+		{
+			PrintWriter outputToClient = new PrintWriter(clientSocket.getOutputStream(), true);
+			BufferedReader inputFromClient = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+			
+			while (true)
+			{
+				String lineFromClient = inputFromClient.readLine();
+				if ( !lineFromClient.endsWith("mpd") )
+				{
+					synchronized (controllerSocket)
+					{
+						String lineToSend = this.createMessageForController(lineFromClient);
+						PrintWriter outputToController = new PrintWriter(controllerSocket.getOutputStream(), true);
+						outputToController.println(lineToSend);
+						BufferedReader inputFromController = new BufferedReader(new InputStreamReader(controllerSocket.getInputStream()));
+						String lineFromController = inputFromController.readLine();
+						System.out.println("To Controller: " + lineToSend + " / From Controller: " + lineFromController);
+					}
+				}
+				this.sendOutput(lineFromClient);
+			}
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
+	}
+	
+	private void sendOutput(String filepath)
     {
 		try
 		{
-			String absolutePath = System.getProperty("user.dir") + "/dash/data/" + this.filepath;
+			String absolutePath = System.getProperty("user.dir") + "/dash/data/" + filepath;
 			File f = new File(absolutePath);
 			int len = (int) f.length();
 			byte[] buf = new byte[len];
@@ -113,11 +70,17 @@ public class ServerWorker implements Runnable
 			din.readFully(buf);
 			din.close();
 			
-			this.output = this.clientSocket.getOutputStream();
-	        //this.output.write(("HTTP/1.1 200 OK\n").getBytes());
-	        //this.output.write(("Content-Length: " + len + "\n\n").getBytes());
-	        this.output.write(buf);
-	        this.output.flush();
+			System.out.println("FILE LENGTH: " + len);
+			
+			OutputStream output = this.clientSocket.getOutputStream();
+			ByteBuffer b = ByteBuffer.allocate(4);
+			b.putInt(len);
+			byte[] result = b.array();
+			System.out.println(result.length);
+			System.out.println(Arrays.toString(result));
+			output.write(result);
+	        output.write(buf);
+	        output.flush();
 		}
 		catch (IOException e)
 		{
@@ -125,16 +88,26 @@ public class ServerWorker implements Runnable
 		}
     }
 	
-	private void closeStreams()
+	private String createMessageForController(String line)
 	{
-		try
+		String message = this.clientSocket.getRemoteSocketAddress().toString();
+		
+		Pattern pattern = Pattern.compile("\\w*?_(\\d+)kbit/\\w*?\\d{1,2}s(\\d{1,3})\\.\\w{3}", Pattern.CASE_INSENSITIVE);
+		Matcher matcher = pattern.matcher(line);
+		while ( matcher.find() )
 		{
-			this.input.close();
-			this.output.close();
+			message += "," + matcher.group(1);
+			message += "," + matcher.group(2);
 		}
-		catch (IOException e)
-		{
-			throw new RuntimeException("Cannot close streams", e);
-		}
+		return message;
 	}
 }
+
+
+
+
+
+
+
+
+

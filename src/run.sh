@@ -1,0 +1,12 @@
+#!/bin/bash    
+
+cd dash
+javac *.java
+cd ../
+xterm -e java dash.Controller &
+sleep 2
+xterm -e java dash.Server &
+sleep 2
+#xterm -e java dash.Client &
+#xterm -e java dash.Client veli &
+#xterm -e java dash.Client deli &

@@ -1,18 +1,37 @@
 package dash;
 
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.UnknownHostException;
+import java.util.LinkedList;
+import java.util.Queue;
 
-public class Server extends Base
-{	
-	final private int port = 12000;
-	final private String name = "Server";
+public class Server
+{
+	static Socket controllerSocket;
 	
-	protected int getListeningPort()
+	public Queue<String> clientReq = new LinkedList<String>();
+	
+	public static void main(String[] args) throws UnknownHostException, IOException
 	{
-		return this.port;
+		Server s = new Server();
+		s.connectToController();
+		s.openServerSocketForClients();
 	}
-	
-	protected String getName()
+
+	private void connectToController() throws UnknownHostException, IOException
 	{
-		return this.name;
+		this.controllerSocket = new Socket("127.0.0.1", 12001);
+	}
+
+	private void openServerSocketForClients() throws IOException
+	{
+		ServerSocket serverSocket = new ServerSocket(12000);
+		while (true)
+		{
+			Socket clientSocket = serverSocket.accept();
+			new ServerWorker(controllerSocket, clientSocket).start();
+		}
 	}
 }

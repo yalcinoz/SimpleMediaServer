@@ -1,0 +1,49 @@
+package dash;
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+
+public class ServerWorker extends Thread
+{
+	public Socket controllerSocket;
+	
+	private Socket clientSocket;
+
+	public ServerWorker(Socket controllerSocket, Socket clientSocket) throws FileNotFoundException
+	{
+		this.controllerSocket = controllerSocket;
+		this.clientSocket = clientSocket;
+	}
+
+	public void run()
+	{
+		try
+		{
+			PrintWriter outputToClient = new PrintWriter(clientSocket.getOutputStream(), true);
+			BufferedReader inputFromClient = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+			
+			while (true)
+			{
+				String lineFromClient = inputFromClient.readLine();
+				synchronized (controllerSocket)
+				{
+					PrintWriter outputToController = new PrintWriter(controllerSocket.getOutputStream(), true);
+					outputToController.println(lineFromClient);
+					BufferedReader inputFromController = new BufferedReader(new InputStreamReader(controllerSocket.getInputStream()));
+					String lineFromController = inputFromController.readLine();
+					//outputToClient.println(lineFromController);
+					outputToClient.write(lineFromController + "\n");
+					System.out.println("Gelen: " + lineFromClient + " / Giden: " + lineFromController);
+				}
+			}
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
+	}
+}
